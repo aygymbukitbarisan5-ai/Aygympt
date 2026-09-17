@@ -32,4 +32,54 @@ label{display:block;font-size:13px;color:#b9c4d1;margin:12px 0}input,select,text
 .ex-log-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;background:#090e15;border:1px solid var(--line);border-radius:8px;margin-bottom:6px}
 .session-card-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:12px;border-radius:10px;background:#0d131c;border:1px solid var(--line);margin-bottom:8px}
 .session-card-head:hover{border-color:var(--accent)}
-@media(max-width:800px){.stats{grid-template-columns:repeat(2,1fr)}.grid.two,.grid.three{grid-template-columns:1fr}.shell{padding:16px}.topbar{padding:0 14px}.welcome{align-items:flex-start;flex-direction:column}.search{max-width:none}.top-actions #userLabel{display:none}.exercise-grid{grid-template-columns:1fr}}
+
+/* AI Consultant & BMI Calculator */
+.ai-consultant-grid{grid-template-columns:minmax(320px,1fr) minmax(360px,1.2fr);align-items:start}
+.bmi-result-card{background:linear-gradient(180deg,#0e1724,#0a111a);border:1px solid #1f3653;border-radius:14px;padding:16px}
+.bmi-bar-container{position:relative}
+.bmi-bar{height:10px;border-radius:999px;display:flex;overflow:hidden;background:#15202e}
+.bmi-bar-segment{height:100%}
+.bmi-needle{position:absolute;top:-4px;width:4px;height:18px;background:#ffffff;border-radius:2px;box-shadow:0 0 6px rgba(255,255,255,0.8);transform:translateX(-50%);transition:left .3s ease}
+.bmi-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:6px;padding:0 2px}
+.macro-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.macro-card{background:#090e15;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center}
+.macro-card.highlight{border-color:#2d588e;background:#0f1c2d}
+.macro-card b{font-size:18px;color:#fff;display:inline-block;margin-top:2px}
+
+.ai-chat-card{display:flex;flex-direction:column;height:680px}
+.ai-chat-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.ai-avatar{width:38px;height:38px;border-radius:50%;background:#18283d;display:grid;place-items:center;font-size:20px;border:1px solid #2b4b74}
+.chip-scroll{display:flex;gap:6px;overflow-x:auto;padding:10px 0;scrollbar-width:none}
+.chip-scroll::-webkit-scrollbar{display:none}
+.chip-btn{background:#0f1824;border:1px solid #1f3653;color:#a9c7eb;border-radius:999px;padding:5px 12px;font-size:11.5px;white-space:nowrap;cursor:pointer;transition:.15s;flex-shrink:0}
+.chip-btn:hover{background:#18283c;border-color:var(--accent);color:#fff}
+.ai-messages-area{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:12px 2px}
+.chat-msg{display:flex;gap:10px;max-width:90%}
+.chat-msg.user{align-self:flex-end;flex-direction:row-reverse}
+.chat-msg.assistant{align-self:flex-start}
+.chat-msg-avatar{width:30px;height:30px;border-radius:50%;background:#18283d;display:grid;place-items:center;font-size:15px;flex-shrink:0}
+.chat-msg-bubble{padding:12px 14px;border-radius:12px;font-size:13.5px;line-height:1.6}
+.chat-msg.user .chat-msg-bubble{background:#163861;color:#fff;border-bottom-right-radius:2px}
+.chat-msg.assistant .chat-msg-bubble{background:#0c121b;border:1px solid #1c2a3d;color:#dce5ef;border-bottom-left-radius:2px}
+.chat-msg-sender{font-size:11px;font-weight:700;color:#79aee8;margin-bottom:4px}
+.chat-msg-text h3{margin:8px 0 4px;font-size:14px;color:#8dc1ff}
+.chat-msg-text ul,.chat-msg-text ol{margin:4px 0 6px 18px;padding:0}
+.chat-msg-text li{margin-bottom:3px}
+.chat-msg-text blockquote{margin:6px 0;padding:6px 10px;background:#101824;border-left:3px solid #3b82f6;border-radius:4px;color:#a5c4e8}
+.ai-input-form{display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.ai-input-form textarea{flex:1;resize:none;font-family:inherit;font-size:13px;padding:10px 12px;border-radius:8px}
+.ai-send-btn{display:flex;align-items:center;gap:6px;padding:0 16px;font-size:13px;font-weight:700}
+
+@media(max-width:800px){
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .grid.two,.grid.three{grid-template-columns:1fr}
+  .shell{padding:16px}
+  .topbar{padding:0 14px}
+  .welcome{align-items:flex-start;flex-direction:column}
+  .search{max-width:none}
+  .top-actions #userLabel{display:none}
+  .exercise-grid{grid-template-columns:1fr}
+  .ai-consultant-grid{grid-template-columns:1fr}
+  .ai-chat-card{height:540px}
+  .macro-grid{grid-template-columns:1fr}
+}

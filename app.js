@@ -184,7 +184,17 @@ function showPage(page){
   document.querySelectorAll(".page").forEach(p=>p.classList.add("hidden"));
   const el=$(page+"Page"); if(el) el.classList.remove("hidden");
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));
-  $("pageTitle").textContent={dashboard:"Dashboard",clients:"Klien",session:"Catat Sesi",myprogress:"Progress Saya",users:"Pengguna"}[page]||"Dashboard";
+  $("pageTitle").textContent={
+    dashboard:"Dashboard",
+    clients:"Klien",
+    session:"Catat Sesi",
+    myprogress:"Progress Saya",
+    aiconsultant:"Tanya Coach AI & Kalkulator BMI",
+    users:"Pengguna"
+  }[page]||"Dashboard";
+  if(page==="aiconsultant"){
+    autoFillBmiInputs();
+  }
 }
 
 async function loadAll(){
@@ -644,4 +654,335 @@ window.changeRole=async(id,role)=>{
   const {error}=await sb.from("profiles").update({role}).eq("id",id);
   if(error) toast(error.message,"error"); else {toast("Role diperbarui.");loadUsers();}
 };
+
+/* ==========================================================
+   FITUR KALKULATOR BMI & TANYA COACH AI (GEMINI 3.8 FLASH)
+   ========================================================== */
+let lastCalculatedBmi = null;
+
+function autoFillBmiInputs(){
+  // Cari berat badan terakhir klien yang tercatat
+  const weightInput = $("bmiWeight");
+  if(!weightInput || weightInput.value) return;
+
+  const sessionWithWeight = sessions.find(s=>s.weight_kg && s.weight_kg > 0);
+  if(sessionWithWeight){
+    weightInput.value = sessionWithWeight.weight_kg;
+  }
+}
+
+if($("bmiAutoFillBtn")){
+  $("bmiAutoFillBtn").onclick=()=>{
+    const sessionWithWeight = sessions.find(s=>s.weight_kg && s.weight_kg > 0);
+    if(sessionWithWeight){
+      $("bmiWeight").value = sessionWithWeight.weight_kg;
+      toast(`Berat badan diisi otomatis: ${sessionWithWeight.weight_kg} kg (dari sesi ${sessionWithWeight.session_date})`);
+    } else {
+      toast("Belum ada riwayat timbangan berat badan di sesi latihan.","error");
+    }
+  };
+}
+
+if($("bmiForm")){
+  $("bmiForm").onsubmit=e=>{
+    e.preventDefault();
+    const height = parseFloat($("bmiHeight").value);
+    const weight = parseFloat($("bmiWeight").value);
+    const age = parseInt($("bmiAge").value) || 25;
+    const gender = $("bmiGender").value;
+    const activity = parseFloat($("bmiActivity").value) || 1.55;
+    const goal = $("bmiGoal").value;
+
+    if(!height || height < 100 || height > 250){
+      return toast("Tinggi badan harus antara 100 - 250 cm.","error");
+    }
+    if(!weight || weight < 30 || weight > 250){
+      return toast("Berat badan harus antara 30 - 250 kg.","error");
+    }
+
+    // 1. BMI Calculation (kg / m^2)
+    const heightM = height / 100;
+    const bmi = weight / (heightM * heightM);
+
+    let category = "Normal";
+    let tagClass = "tag-today";
+    if(bmi < 18.5){
+      category = "Kurus (Underweight)";
+      tagClass = "tag-blue";
+    } else if(bmi < 25.0){
+      category = "Ideal & Normal";
+      tagClass = "tag-today";
+    } else if(bmi < 30.0){
+      category = "Kelebihan Berat (Overweight)";
+      tagClass = "tag-muted";
+    } else {
+      category = "Obesitas";
+      tagClass = "tag-muted";
+    }
+
+    // 2. Rentang Berat Badan Ideal (WHO 18.5 - 24.9)
+    const minIdeal = (18.5 * (heightM * heightM)).toFixed(1);
+    const maxIdeal = (24.9 * (heightM * heightM)).toFixed(1);
+
+    // 3. Estimasi BMR (Rumus Mifflin-St Jeor)
+    let bmr = 0;
+    if(gender === "male"){
+      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+    } else {
+      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+    }
+    bmr = Math.round(bmr);
+
+    // 4. Estimasi TDEE (Total Daily Energy Expenditure)
+    const tdee = Math.round(bmr * activity);
+
+    // 5. Target Kalori Harian sesuai Target
+    let targetCal = tdee;
+    let goalLabel = "Rekomposisi Tubuh (Maintain)";
+    if(goal === "fat_loss"){
+      targetCal = Math.max(1200, tdee - 400);
+      goalLabel = "Fat Loss / Cutting (Defisit Kalori)";
+    } else if(goal === "bulking"){
+      targetCal = tdee + 350;
+      goalLabel = "Muscle Building / Bulking (Surplus Kalori)";
+    }
+
+    // 6. Estimasi Makronutrien Gym
+    // Protein: ~2.0g per kg berat badan (atau 2.2g jika fat loss)
+    const proteinGram = Math.round(goal === "fat_loss" ? weight * 2.2 : weight * 2.0);
+    // Lemak Sehat: ~25% dari total kalori harian (1g lemak = 9 kalori)
+    const fatGram = Math.round((targetCal * 0.25) / 9);
+    // Karbohidrat: Sisa kalori dibagi 4 (1g karbo = 4 kalori)
+    const carbCalories = Math.max(200, targetCal - (proteinGram * 4) - (fatGram * 9));
+    const carbGram = Math.round(carbCalories / 4);
+
+    // Simpan data untuk dikirim ke Coach AI
+    lastCalculatedBmi = {
+      weight,
+      height,
+      age,
+      gender: gender === "male" ? "Pria" : "Wanita",
+      bmi: bmi.toFixed(1),
+      category,
+      idealWeight: `${minIdeal} - ${maxIdeal}`,
+      bmr,
+      tdee,
+      targetCal,
+      goal: goalLabel,
+      activity: $("bmiActivity").options[$("bmiActivity").selectedIndex].text,
+      macros: {
+        protein: proteinGram,
+        carbs: carbGram,
+        fats: fatGram
+      }
+    };
+
+    // Render ke UI
+    $("resBmiValue").textContent = bmi.toFixed(1);
+    $("resBmiCategory").textContent = category;
+    $("resBmiCategory").className = "tag " + tagClass;
+    $("resIdealWeight").textContent = `${minIdeal} - ${maxIdeal} kg`;
+    $("resBmr").textContent = bmr.toLocaleString();
+    $("resTdee").textContent = tdee.toLocaleString();
+    $("resTargetCal").textContent = targetCal.toLocaleString();
+
+    $("resProtein").textContent = `${proteinGram}g`;
+    $("resCarbs").textContent = `${carbGram}g`;
+    $("resFats").textContent = `${fatGram}g`;
+
+    // Posisi Jarum Indikator BMI (rentang skala 15 hingga 35)
+    const minScale = 15, maxScale = 35;
+    const pct = Math.min(96, Math.max(4, ((bmi - minScale) / (maxScale - minScale)) * 100));
+    $("bmiNeedle").style.left = `${pct}%`;
+
+    $("bmiResultBox").classList.remove("hidden");
+    toast("Kalkulasi BMI & Nutrisi berhasil!");
+  };
+}
+
+if($("sendBmiToAiBtn")){
+  $("sendBmiToAiBtn").onclick=()=>{
+    if(!lastCalculatedBmi) return;
+    const prompt = `Halo Coach AI! Saya baru saja menghitung BMI saya di AY GYM:
+- Berat: ${lastCalculatedBmi.weight} kg, Tinggi: ${lastCalculatedBmi.height} cm (BMI: ${lastCalculatedBmi.bmi} - ${lastCalculatedBmi.category})
+- Berat Ideal: ${lastCalculatedBmi.idealWeight} kg
+- Target Kalori Harian: ${lastCalculatedBmi.targetCal} kcal (${lastCalculatedBmi.goal})
+- Target Makro: Protein ${lastCalculatedBmi.macros.protein}g, Karbo ${lastCalculatedBmi.macros.carbs}g, Lemak ${lastCalculatedBmi.macros.fats}g.
+
+Tolong berikan rekomendasi menu makanan harian (sarapan, makan siang, pre/post workout, malam) dari bahan lokal yang mudah didapat, serta tips latihan gym yang paling efektif untuk target saya ini!`;
+
+    sendChatMessage(prompt);
+  };
+}
+
+// Quick Topic Chips
+document.querySelectorAll(".chip-btn").forEach(btn=>{
+  btn.onclick=()=>{
+    sendChatMessage(btn.dataset.ask);
+  };
+});
+
+if($("clearChatBtn")){
+  $("clearChatBtn").onclick=()=>{
+    const box = $("aiChatMessages");
+    if(!box) return;
+    box.innerHTML = `
+      <div class="chat-msg assistant">
+        <div class="chat-msg-avatar">🤖</div>
+        <div class="chat-msg-bubble">
+          <div class="chat-msg-sender">Coach AI AY GYM</div>
+          <div class="chat-msg-text">
+            Percakapan telah dibersihkan. Ada yang ingin Anda tanyakan lagi seputar dunia gym, pola diet, atau gerakan latihan?
+          </div>
+        </div>
+      </div>
+    `;
+    toast("Chat dibersihkan.");
+  };
+}
+
+if($("aiChatForm")){
+  $("aiChatForm").onsubmit=e=>{
+    e.preventDefault();
+    const input = $("aiInputText");
+    const msg = input.value.trim();
+    if(!msg) return;
+    input.value = "";
+    sendChatMessage(msg);
+  };
+}
+
+function formatMarkdown(text){
+  if(!text) return "";
+  let html = esc(text);
+
+  // Headings
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^# (.*$)/gim, '<h3>$1</h3>');
+
+  // Blockquotes
+  html = html.replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>');
+
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+
+  // Bullet items
+  html = html.replace(/^[-\*] (.*$)/gim, '<li>$1</li>');
+  // Group <li> into <ul>
+  html = html.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+  // Clean adjacent </ul><ul>
+  html = html.replace(/<\/ul>\s*<ul>/g, '');
+
+  // Numbered list
+  html = html.replace(/^\d+\.\s+(.*$)/gim, '<li>$1</li>');
+
+  // Line breaks for remaining text
+  html = html.replace(/\n\n/g, '<br><br>');
+  html = html.replace(/\n/g, '<br>');
+
+  return html;
+}
+
+async function sendChatMessage(messageText){
+  if(!messageText || !messageText.trim()) return;
+  const container = $("aiChatMessages");
+  if(!container) return;
+
+  // 1. Tambahkan bubble chat dari Pengguna
+  const userMsgEl = document.createElement("div");
+  userMsgEl.className = "chat-msg user";
+  userMsgEl.innerHTML = `
+    <div class="chat-msg-avatar" style="background:#1d426d;">👤</div>
+    <div class="chat-msg-bubble">
+      <div class="chat-msg-sender" style="text-align:right;color:#a8d1ff;">Anda</div>
+      <div class="chat-msg-text">${esc(messageText)}</div>
+    </div>
+  `;
+  container.appendChild(userMsgEl);
+
+  // 2. Tambahkan temporary typing indicator bubble
+  const typingId = "typing-" + Date.now();
+  const typingEl = document.createElement("div");
+  typingEl.id = typingId;
+  typingEl.className = "chat-msg assistant";
+  typingEl.innerHTML = `
+    <div class="chat-msg-avatar">🤖</div>
+    <div class="chat-msg-bubble">
+      <div class="chat-msg-sender">Coach AI AY GYM</div>
+      <div class="chat-msg-text" style="color:#8ec0ff;display:flex;align-items:center;gap:8px;">
+        <span>Sedang meracik panduan latihan & nutrisi...</span>
+        <span class="pill" style="font-size:11px;">⏳ Berpikir</span>
+      </div>
+    </div>
+  `;
+  container.appendChild(typingEl);
+  container.scrollTop = container.scrollHeight;
+
+  // Nonaktifkan tombol kirim sementara
+  const sendBtn = $("aiSendBtn");
+  if(sendBtn) sendBtn.disabled = true;
+
+  try {
+    const clientName = currentProfile?.full_name || clients[0]?.full_name || "Klien AY GYM";
+    const res = await fetch("/api/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: messageText,
+        bmiData: lastCalculatedBmi,
+        clientName
+      })
+    });
+
+    const data = await res.json();
+    const typingBubble = $(typingId);
+
+    if(!res.ok){
+      const errText = data.error || "Gagal menghubungi layanan Coach AI.";
+      if(typingBubble){
+        typingBubble.innerHTML = `
+          <div class="chat-msg-avatar">🤖</div>
+          <div class="chat-msg-bubble">
+            <div class="chat-msg-sender" style="color:#ff8d8a;">Coach AI AY GYM</div>
+            <div class="chat-msg-text" style="color:#ff8d8a;">
+              ⚠️ ${esc(errText)}
+            </div>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    const replyHtml = formatMarkdown(data.reply || "Maaf, tidak ada tanggapan.");
+    if(typingBubble){
+      typingBubble.innerHTML = `
+        <div class="chat-msg-avatar">🤖</div>
+        <div class="chat-msg-bubble">
+          <div class="chat-msg-sender">Coach AI AY GYM</div>
+          <div class="chat-msg-text">${replyHtml}</div>
+          ${data.isFallback ? `<div class="small muted" style="margin-top:8px;font-size:11px;border-top:1px solid #1a2738;padding-top:6px;">💡 <i>Catatan: Mode Offline/Demo Coach AI aktif. Tambahkan GEMINI_API_KEY di Pengaturan untuk respon interaktif penuh Gemini 3.8 Flash.</i></div>` : ''}
+        </div>
+      `;
+    }
+  } catch(err){
+    console.error("AI chat network error:", err);
+    const typingBubble = $(typingId);
+    if(typingBubble){
+      typingBubble.innerHTML = `
+        <div class="chat-msg-avatar">🤖</div>
+        <div class="chat-msg-bubble">
+          <div class="chat-msg-sender" style="color:#ff8d8a;">Coach AI AY GYM</div>
+          <div class="chat-msg-text" style="color:#ff8d8a;">
+            ⚠️ Terjadi kendala koneksi ke server. Silakan coba lagi sebentar.
+          </div>
+        </div>
+      `;
+    }
+  } finally {
+    if(sendBtn) sendBtn.disabled = false;
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
 boot();
