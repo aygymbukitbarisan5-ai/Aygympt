@@ -1,0 +1,14 @@
+{
+  "name": "ay-gym-personal-trainer",
+  "version": "1.0.0",
+  "description": "AY GYM Personal Trainer Management System",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "node build.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
