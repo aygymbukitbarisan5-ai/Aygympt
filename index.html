@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AY GYM — Personal Trainer</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+
+  <section id="authView" class="auth-wrap">
+    <div class="auth-card">
+      <div class="brand">AY <span>GYM</span></div>
+      <p class="muted">Personal Trainer Management System</p>
+      <div class="auth-tabs">
+        <button class="tab active" data-auth="login">Masuk</button>
+        <button class="tab" data-auth="signup">Daftar</button>
+      </div>
+      <form id="authForm">
+        <label>Email<input id="authEmail" type="email" required placeholder="nama@email.com"></label>
+        <label>Password<input id="authPassword" type="password" minlength="6" required placeholder="Minimal 6 karakter"></label>
+        <label id="nameField" class="hidden">Nama<input id="authName" type="text" placeholder="Nama lengkap"></label>
+        <button class="primary wide" type="submit" id="authSubmit">Masuk</button>
+      </form>
+      <p id="authHint" class="small muted">Gunakan akun yang sudah dibuat di Supabase.</p>
+      <p class="small muted">AY GYM • Jalan Bukit Barisan No. 34</p>
+    </div>
+  </section>
+
+  <section id="appView" class="hidden">
+    <header class="topbar">
+      <div>
+        <div class="brand small-brand">AY <span>GYM</span></div>
+        <div id="roleLabel" class="small muted"></div>
+      </div>
+      <div class="top-actions">
+        <span id="userLabel" class="small"></span>
+        <button id="logoutBtn" class="ghost">Keluar</button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <div class="welcome">
+        <div>
+          <h1 id="pageTitle">Dashboard</h1>
+          <p class="muted">Kelola klien, sesi latihan, program, dan progress.</p>
+        </div>
+        <button id="newClientBtn" class="primary admin-only trainer-only">+ Klien Baru</button>
+      </div>
+
+      <nav class="nav" id="nav">
+        <button class="nav-btn active" data-page="dashboard">Dashboard</button>
+        <button class="nav-btn admin-only trainer-only" data-page="clients">Klien</button>
+        <button class="nav-btn admin-only trainer-only" data-page="session">Catat Sesi</button>
+        <button class="nav-btn client-only" data-page="myprogress">Progress Saya</button>
+        <button class="nav-btn admin-only" data-page="users">Pengguna</button>
+      </nav>
+
+      <section id="dashboardPage" class="page">
+        <div class="stats">
+          <div class="stat"><span>Klien</span><b id="statClients">0</b></div>
+          <div class="stat"><span>Sesi tercatat</span><b id="statSessions">0</b></div>
+          <div class="stat"><span>Sesi bulan ini</span><b id="statMonth">0</b></div>
+          <div class="stat"><span>Role</span><b id="statRole">-</b></div>
+        </div>
+        <div class="grid two">
+          <div class="card">
+            <h2>Aktivitas terbaru</h2>
+            <div id="recentSessions" class="list"></div>
+          </div>
+          <div class="card">
+            <h2>Akses cepat</h2>
+            <div class="quick">
+              <button class="quick-btn admin-only trainer-only" data-page-jump="session">+ Catat sesi latihan</button>
+              <button class="quick-btn admin-only trainer-only" data-page-jump="clients">Lihat data klien</button>
+              <button class="quick-btn client-only" data-page-jump="myprogress">Lihat progress saya</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="clientsPage" class="page hidden">
+        <div class="card">
+          <div class="row-between"><h2>Data Klien</h2><input id="clientSearch" class="search" placeholder="Cari nama klien..."></div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Klien</th><th>Paket</th><th>Sesi</th><th>Progress</th><th>Aksi</th></tr></thead>
+            <tbody id="clientsBody"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="sessionPage" class="page hidden">
+        <div class="grid two">
+          <div class="card">
+            <h2>Catat Pertemuan</h2>
+            <form id="sessionForm">
+              <label>Klien<select id="sessionClient" required></select></label>
+              <div class="grid two">
+                <label>Tanggal<input id="sessionDate" type="date" required></label>
+                <label>Durasi (menit)<input id="duration" type="number" min="1" value="60"></label>
+              </div>
+              <div class="grid three">
+                <label>Berat (kg)<input id="weight" type="number" step="0.1"></label>
+                <label>Pinggang (cm)<input id="waist" type="number" step="0.1"></label>
+                <label>Body fat %<input id="bodyfat" type="number" step="0.1"></label>
+              </div>
+              <label>Fokus latihan<input id="focus" placeholder="Contoh: Chest + Triceps"></label>
+              <label>Kondisi / energi<select id="energy"><option value="">-</option><option>1 - Sangat lelah</option><option>2 - Lelah</option><option>3 - Normal</option><option>4 - Bagus</option><option>5 - Sangat bagus</option></select></label>
+              <label>Catatan PT<textarea id="sessionNotes" rows="4" placeholder="Catatan kondisi, teknik, keluhan, evaluasi..."></textarea></label>
+              <button class="primary wide" type="submit">Simpan Pertemuan</button>
+            </form>
+          </div>
+          <div class="card">
+            <h2>Gerakan Latihan</h2>
+            <p class="small muted">Tambahkan gerakan setelah memilih klien dan menyimpan sesi.</p>
+            <form id="exerciseForm">
+              <label>Session ID<input id="exerciseSessionId" required placeholder="Akan terisi setelah sesi disimpan"></label>
+              <div class="grid two">
+                <label>Gerakan<input id="exerciseName" required placeholder="Bench Press"></label>
+                <label>Muscle group<input id="muscle" placeholder="Chest"></label>
+              </div>
+              <div class="grid three">
+                <label>Beban kg<input id="exWeight" type="number" step="0.5"></label>
+                <label>Set<input id="sets" type="number" min="1"></label>
+                <label>Reps<input id="reps" type="number" min="1"></label>
+              </div>
+              <div class="grid two">
+                <label>Rest detik<input id="rest" type="number" min="0"></label>
+                <label>RPE<input id="rpe" type="number" min="1" max="10" step="0.5"></label>
+              </div>
+              <label>Catatan gerakan<textarea id="exerciseNotes" rows="3"></textarea></label>
+              <button class="secondary wide" type="submit">Simpan Gerakan</button>
+            </form>
+            <div id="exerciseList" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="myprogressPage" class="page hidden">
+        <div class="card">
+          <h2>Progress Saya</h2>
+          <div id="clientSummary"></div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Pertemuan</th><th>Tanggal</th><th>Berat</th><th>Fokus</th><th>Catatan</th></tr></thead>
+            <tbody id="mySessionsBody"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="usersPage" class="page hidden">
+        <div class="card">
+          <h2>Pengguna</h2>
+          <p class="small muted">Admin dapat mengatur role akun. User harus sudah mendaftar terlebih dahulu.</p>
+          <div class="table-wrap">
+            <table><thead><tr><th>Nama</th><th>Email</th><th>Role</th><th>Aksi</th></tr></thead>
+            <tbody id="usersBody"></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <section id="clientModal" class="modal hidden">
+        <div class="modal-card">
+          <div class="row-between"><h2>Tambah Klien</h2><button class="icon" id="closeClient">×</button></div>
+          <form id="clientForm">
+            <label>Nama lengkap<input id="clientName" required></label>
+            <div class="grid two"><label>No. HP<input id="clientPhone"></label><label>Target / goal<input id="clientGoal"></label></div>
+            <div class="grid two"><label>Mulai<input id="clientStart" type="date" required></label><label>Total sesi<input id="totalSessions" type="number" min="1" value="10" required></label></div>
+            <label>Paket<input id="packageName" placeholder="PT 10x"></label>
+            <label>Akun klien (opsional)<select id="clientUser"><option value="">Tidak dihubungkan</option></select></label>
+            <label>Catatan<textarea id="clientNotes" rows="3"></textarea></label>
+            <button class="primary wide" type="submit">Simpan Klien</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </section>
+  <script src="app.js"></script>
+</body>
+</html>
